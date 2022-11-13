@@ -54,9 +54,33 @@
    (state-set state nil))
   ([^State state me]
    (if (.-mounted state)
-     (do (dpx :setting-state state (cty/minfo me))
+     (do (dp :state-set>setting-state state (cty/minfo me))
          (.setState state (fn [] (do))))
-     (dpx :NOT_SETTING_STATE_NOT_MOUNTED state (cty/minfo me)))))
+     (dp :state-set>NOT_SETTING_STATE_NOT_MOUNTED state (cty/minfo me)))))
+
+#_
+(defn state-set-all
+  "Try just going up....nope"
+  [me]
+  (when-let [^State state (mget me :fx$state)]
+    (state-set state me))
+  (when-let [par (:parent @me)]
+    (state-set-all par)))
+
+(defn state-set-down [me]
+  (when-let [^State state (mget me :fx$state)]
+    (state-set state me))
+  (doseq [k (md-kids me)]
+    (when (md-ref? k)
+      (state-set-down k))))
+
+(defn state-set-all
+  "Go up to root then do full tree"
+  ;; todo scan properties for widgets
+  [me]
+  (if-let [par (:parent @me)]
+    (state-set-all par)
+    (state-set-down me)))
 
 (deftype FXDartWidget []
   :extends Model
@@ -179,7 +203,6 @@
                          (apply concat kvs)))))
        (tiltontec.model.core/cFkids ~@children))))
 
-
 (defmacro children-stateless [fx-class fx-props mx-props & children]
   (let []
     `(tiltontec.flutter-mx.factory/make-fx (new tiltontec.flutter-mx.factory/FXDartWidget)
@@ -225,7 +248,6 @@
                          (apply concat kvs)))))
        (tiltontec.model.core/cFkids ~@children))))
 
-
 (defmacro k1-param1-stateful [fx-class fx-props mx-props & children]
   (let []
     `(tiltontec.flutter-mx.factory/make-fx (new tiltontec.flutter-mx.factory/FXDartWidget)
@@ -236,6 +258,7 @@
                    (reify :extends (m/StatefulWidget
                                      .key (tiltontec.flutter-mx.core/fx-resolve me ctx
                                             (tiltontec.model.core/mget me :key)))
+
                      (~'createState [_#]
                        (reify :extends w/State
                          (^void ~'initState [this]
@@ -244,6 +267,28 @@
                            (when-let [init (mget me :initState)]
                              (dp :calling-initstate-of (tiltontec.cell.base/minfo me))
                              (init this me)))
+                         ;-- BEGIN NEW CODE -------------------
+                         ; (~'debugFillProperties [this# props-builder#]
+                         ;                  (.debugFillProperties ^{:tag ~'super} this# props-builder#)
+                         ;                  (doto props-builder#
+                         ;                    ~@(cond-> []
+                         ;                        watch
+                         ;                        (conj `(.add (foundation/MessageProperty "atom" (pr-str @~watch))))))
+                         ;                  nil)
+                         (^void ~'reassemble [this#]
+                           (.reassemble ^{:tag ~'super} this#)
+                           (dp :hello-reassemble-callback (cty/minfo me))
+                           (state-set-all me)
+                           #_
+                           (if-let [^State state (mget (:parent @me) #_ me :fx$state)]
+                             (do (dp :REASM-settingimmediatestate (cty/minfo (:parent @me)) (.-mounted state))
+                                 (state-set state me))
+                             (if-let [^State state (fx-state-nearest (:parent @me) #_ me)]
+                               (do
+                                 (dp :REASM-SNO-uses-nearest-state (cty/minfo (:parent @me)) state (.-mounted state))
+                                 (state-set state me))
+                               (dp :REASM-SNO-setting-state-on-utterly-stateless (cty/minfo me)))))
+                         ;-- END NEW CODE
                          (~'build [_# ctx]
                            (~fx-class (tiltontec.flutter-mx.core/fx-render ctx (first (tiltontec.model.core/md-kids me)))
                              ~@(let [kvs (for [[k# _#] fx-props]
@@ -278,7 +323,6 @@
                                                (tiltontec.model.core/mget me ~k#))])]
                                  (apply concat kvs)))))))))
        nil)))
-
 
 (defmacro prop-param1-childless-stateful [p1-prop-name fx-class fx-props mx-props]
   (let []
@@ -337,7 +381,6 @@
                                    (apply concat kvs))))))))))
        (tiltontec.model.core/cFkids ~@children))))
 
-
 (defmacro k1-home-stateful [fx-class fx-props mx-props & children]
   (let []
     ;(assert (not (contains? fx-props :home)) "k1-home-stateful passed :home param in FX props, but expects :home as first child")
@@ -369,8 +412,6 @@
                                                  (tiltontec.model.core/mget me ~k#))])]
                                    (apply concat kvs))))))))))
        (tiltontec.model.core/cFkids ~@children))))
-
-
 
 (defmacro prop-param1-childless-stateless [prop fx-class fx-props mx-props]
   (let []

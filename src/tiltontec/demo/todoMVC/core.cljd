@@ -18,6 +18,10 @@
 ;;;;;; --- Components first ------------------------------------------
 
 ;;; --- the app bar -----------------------------------------------
+
+
+;(def ^:const k-title "todo")
+
 (defn todo-app-bar [title]
   (fx/preferred-size
     {:preferredSize (.fromHeight m/Size 72)}
@@ -75,10 +79,11 @@
 
 (defn make-app []
   (let [title "todo"]
+    (dp :run!!!!!!!!)
     (fx/material-app
       {:title                      title
        :theme                      app-theme
-       :debugShowCheckedModeBanner false}
+       :debugShowCheckedModeBanner true}
       {:name      :app
        :db        (cF+ [:async? true
                         ; ^^^ the formula computes a value of nil then awaits the future
