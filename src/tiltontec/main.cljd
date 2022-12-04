@@ -27,7 +27,8 @@
     [tiltontec.example.x15-fade-widget :as fade]
     [tiltontec.example.x020-reactive-stream :as rxjs]
     [tiltontec.example.layout-explorer :as layo] ;; buggy
-    [tiltontec.demo.todoMVC.core :as todo]))
+    [tiltontec.demo.todoMVC.core :as todo]
+    [tiltontec.example.deadend :as dead]))
 
 (defn main []
   (.ensureInitialized w/WidgetsFlutterBinding)
@@ -39,7 +40,7 @@
   (m/runApp
     (fx/fx-render nil
       ;; Change the ns/ vvv and rebuild to see a different example.
-      (hello/make-app)))
+      (dead/make-app)))
   )
 
 ;; (set! r/debugPaintSizeEnabled true)

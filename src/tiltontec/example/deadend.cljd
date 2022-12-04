@@ -1,0 +1,82 @@
+(ns tiltontec.example.deadend
+  (:require
+    ["dart:async" :as async]
+    [clojure.string :as str]
+    [tiltontec.cell.core :refer [cF cF+ cF_ cI]]
+    [tiltontec.cell.observer :refer [fn-obs]]
+    [tiltontec.model.core :refer [mget mset! mswap! fm* fmu] :as md]
+    [tiltontec.flutter-mx.core :refer [as-dart-callback] :as fx]
+    ["package:flutter/widgets.dart" :as w]
+    ["package:flutter/material.dart" :as m]
+    ["package:flutter/painting.dart" :as p]
+    [tiltontec.util.base :refer [dprn dp dpx]]
+    [tiltontec.cell.base :refer [cinfo minfo] :as cty]))
+
+(def the-second-coming
+  ;; with apologies to William Butler Yeats, we need a duplicate word sequence to make a point
+  (str/split (str "Turning Turning in the widening gyre"
+               " The falcon cannot hear the falconer;"
+               " Things fall apart; the centre cannot hold;"
+               " Mere anarchy is loosed upon the world.") #" "))
+
+(defn make-app []
+  (fx/material-app
+    {:title "Flutter/MX Stream Demo"
+     :theme (m/ThemeData .primarySwatch m.Colors/blue)}
+    (fx/scaffold
+      {:appBar (fx/app-bar
+                 {:title (m/Text "Deadend Explorer")})
+       :floatingActionButton
+       (cF (fx/floating-action-button
+             {:onPressed (as-dart-callback []
+                           (mswap! me :offset #(if % (inc %) 0)))
+              :tooltip   "Send next word of message, looping at end"}
+             {
+              :name       :msg-sender
+              :offset     (cI nil)
+              :next-word  (cF+ [:ephemeral? true
+                                :watch (fn [_ me new-word _ _]
+                                         (when new-word
+                                           (.add (.-sink ^#/(async/StreamController String) (mget me :msg-stream))
+                                             new-word)))]
+                            (when-let [offset (mget me :offset)]
+                              (nth the-second-coming (mod offset (count the-second-coming)))))
+              :msg-stream (new #/(async/StreamController String))
+              }
+             (m/Icon m.Icons/chat .color
+               (if (mget me :offset)
+                 m.Colors/white
+                 m.Colors/yellow))))}
+      (fx/center
+        (fx/column
+          {:mainAxisAlignment m.MainAxisAlignment/center}
+          {:name :column-1}
+
+          #_ (fx/text {:style (p/TextStyle .color m.Colors/blue
+                               .fontSize 18.0)}
+              {:full-text (cF (conj
+                                (if (= _cache cty/unbound) [] _cache)
+                                (mget (fmu :msg-recipient) :msg-rcvd)))}
+              (str/join " " (mget me :full-text)))
+
+          (fx/text {:style (p/TextStyle .color m.Colors/black
+                             .fontSize 36.0)}
+            (str "Message " (or (mget (fmu :msg-recipient) :msg-ct) "not") " received:"))
+
+          (fx/text!
+            {:style (fx/in-my-context [me ctx]
+                      (.-headline3 (.-textTheme (m.Theme/of ctx))))}
+            {:name       :msg-recipient
+             :msg-source (cF+ [:watch (fn [_ me ^#/(async/StreamController String) new-source old-source _]
+                                        (.listen (.-stream ^#/(async/StreamController String) new-source)
+                                          (fn [^String msg]
+                                            (mset! me :msg-rcvd msg))))]
+                           (mget (fm* :msg-sender) :msg-stream))
+             :msg-rcvd   (cI "<none>"
+                           :ephemeral? true)
+             :msg-ct     (cF (when-let [msg (mget me :msg-rcvd)]
+                               (when-not (or (str/blank? msg)
+                                           (= msg "<none>"))
+                                 (if _cache (inc _cache) 1))))
+             }
+            (mget me :msg-rcvd)))))))
