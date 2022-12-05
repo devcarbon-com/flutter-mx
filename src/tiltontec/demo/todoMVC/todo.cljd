@@ -24,7 +24,7 @@
 
 ;;; --- FX-level to-dos and to-do list -----------------------------------------
 
-(declare ToDo-update)
+;(declare ToDo-update)
 
 (deftype ToDo []
   :extends cty/Model
@@ -56,6 +56,7 @@
                          ; gets set as the mx slot value
                          :and-then? (fn [c lookup]
                                       (= 200 (.-statusCode ^dht/Response lookup)))]
+                     ;;(dp :ae-events-gets (mget me :title))
                      (dht/get (.https Uri "api.fda.gov" "drug/event.json"
                                 {"limit"  "1"
                                  "search" (str "patient.drug.openfda.brand_name:"

@@ -25,18 +25,22 @@
     [tiltontec.example.x13-snackbar :as snack]
     [tiltontec.example.x14-hero :as hero]
     [tiltontec.example.x15-fade-widget :as fade]
-    [tiltontec.example.layout-explorer :as layo]
+    [tiltontec.example.x020-reactive-stream :as rxjs]
+    [tiltontec.example.layout-explorer :as layo] ;; buggy
     [tiltontec.demo.todoMVC.core :as todo]))
 
 (defn main []
   (.ensureInitialized w/WidgetsFlutterBinding)
-  ;;(set! r/debugPaintSizeEnabled true)
-  (dp :main!)
+
+  ;; (testing/run-tests)
+
+  ;; --- Your REPL code here! -----------------------
 
   (m/runApp
     (fx/fx-render nil
-      ;; Change the ns/ below to one included above and rebuild to see a different example.
-      (counter/make-app)))
-
-  ;; ??? (w/debugDumpApp)
+      ;; Change the ns/ vvv and rebuild to see a different example.
+      (rxjs/make-app)))
   )
+
+;; (set! r/debugPaintSizeEnabled true)
+;; (w/debugDumpApp)

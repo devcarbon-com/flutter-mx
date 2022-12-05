@@ -2,7 +2,7 @@
   (:require
     ;; todo merge cells NSes
 
-    [tiltontec.util.core :refer [rmap-setf]]
+    [tiltontec.util.core :refer [err rmap-setf]]
     [tiltontec.util.base
      :refer [trx wtrx dprn dp dpx prog1 *trx?* def-rmap-slots def-rmap-meta-slots]]
     [tiltontec.cell.base
@@ -31,8 +31,29 @@
 
 ; todo: stand-alone cells with observers should be observed when they are made
 
+(def +valid-input-options+  #{:obs :watch :slot :ephemeral? :unchanged-if
+                              :value :input?})
+(def +valid-formula-options+ #{:obs :watch :slot :input? :lazy :optimize :ephemeral? :unchanged-if
+                               :code :value :rule :async? :and-then?})
+
+(defn c-options-canonicalize [options allowed]
+  (loop [[k v & more] options
+         res nil
+         observer? false]
+    (cond
+      (nil? k) (reverse res)
+      :else (do
+              (assert (some #{k} allowed) (str "Cell option invalid: " k ". Only allowed are: " allowed))
+              (when (and observer? (some #{k} [:obs :watch]))
+                (err "make-c-formula> options include multiple :watch or :obs. Supply just one."))
+
+              (recur more (conj res (case k
+                                      :watch :obs
+                                      k) v) (or observer? (some #{k} [:obs :watch])))))))
+
 (defn make-cell [& kvs]
-  (let [options (apply hash-map kvs)]
+  (let [options (apply hash-map (c-options-canonicalize kvs
+                                  +valid-input-options+))]
     (atom (merge {:value              unbound
                   :state              :nascent
                   :pulse              0
@@ -50,7 +71,8 @@
       :meta {:mx-type (cty/Cell.)})))
 
 (defn make-c-formula [& kvs]
-  (let [options (apply hash-map kvs)
+  (let [options (apply hash-map (c-options-canonicalize kvs
+                                  +valid-formula-options+))
         rule (:rule options)]
     (assert rule)
     (assert (fn? rule))
@@ -80,9 +102,9 @@
 (defmacro c-fn-var [[c] & body]
   `(fn [~c]
      (let [~'me (tiltontec.cell.base/c-model ~c)
-           ~'cell ~c
-           ~'slot-name (tiltontec.cell.base/c-slot ~c)
-           ~'cache (tiltontec.cell.base/c-value ~c)]
+           ~'.cell ~c
+           ~'.slot-name (tiltontec.cell.base/c-slot ~c)
+           ~'_cache (tiltontec.cell.base/c-value ~c)]
        ~@body)))
 
 (defmacro c-fn [& body]
@@ -225,6 +247,18 @@ in the CL version of Cells SETF itself is the change API dunction."
 
   (cond
     *defer-changes*
+    #_ (let [slot (c-slot-name c)
+             me (c-model c)]
+         (err str
+           "MXAPI_UNDEFERRED_CHANGE> undeferred mswap!/mset!/md-reset! to the property '" slot "' by an observer detected."
+           "...> such mutations must be wrapped by WITH-INTEGRITY, must conveniently with macro WITH-CC."
+           "...> look for MXAPI_UNDEFERRED_CHANGE in the Errors documentation for  more details.\n"
+           "...> FYI: intended new value is [" new-value "]; current value is [" (get @me slot :no-such-slot) "].\n"
+           "...> FYI: instance is of type " (type-cljc me) ".\n"
+           "...> FYI: full instance is " @me "\n"
+           "...> FYI: instance meta is " (meta me) "\n.")
+         #_ (err (cl-format true "MXAPI_UNDEFERRED_CHANGE> change to ~s must be deferred by wrapping it in WITH-INTEGRITY"
+                   (c-slot c))))
     (do (dp :c-reset-rejecting-undeferred! (c-slot c))
         (throw (Exception. (str "c-reset!> change  must be deferred by wrapping it in WITH-INTEGRITY. Slot: "
                              (c-slot c) " :me " @(c-model c)))))
